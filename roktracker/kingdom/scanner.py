@@ -1,5 +1,7 @@
 import datetime
 import logging
+import platform
+import subprocess
 from roktracker.kingdom.pandas_handler import PandasHandler
 from roktracker.utils.output_formats import OutputFormats
 import roktracker.utils.rok_ui_positions as rok_ui
@@ -269,7 +271,8 @@ class KingdomScanner:
                     if cont:
                         count = 0
                     else:
-                        break
+                        governor_data.flag_unknown()
+                        return governor_data
             else:
                 gov_info = True
                 image_check = load_cv2_img(
@@ -314,9 +317,14 @@ class KingdomScanner:
                         wait_random_range(
                             self.timings["copy_wait"], self.max_random_delay
                         )
-                        tk_clipboard = tkinter.Tk()
-                        governor_data.name = tk_clipboard.clipboard_get()
-                        tk_clipboard.destroy()
+                        if platform.system() == "Darwin":
+                            governor_data.name = subprocess.run(
+                                ["pbpaste"], capture_output=True, text=True
+                            ).stdout
+                        else:
+                            tk_clipboard = tkinter.Tk()
+                            governor_data.name = tk_clipboard.clipboard_get()
+                            tk_clipboard.destroy()
                         break
                     except:
                         console.log("Name copy failed, retying")
