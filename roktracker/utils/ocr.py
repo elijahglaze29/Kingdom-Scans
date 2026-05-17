@@ -45,6 +45,25 @@ def preprocessImage(
     return im_bw
 
 
+def preprocessImageWhiteText(
+    image: MatLike,
+    scale_factor: int,
+    threshold: int,
+    border_size: int,
+) -> MatLike:
+    """Preprocess for white text on complex/colorful backgrounds (custom governor profiles).
+
+    Isolates only bright pixels first, then inverts — prevents mid-tone background
+    noise from being misread as text when using the standard invert-then-threshold path.
+    """
+    im_big = cv2.resize(image, (0, 0), fx=scale_factor, fy=scale_factor)
+    im_gray = cv2.cvtColor(im_big, cv2.COLOR_BGR2GRAY)
+    (_, im_bw) = cv2.threshold(im_gray, threshold, 255, cv2.THRESH_BINARY)
+    im_bw = cv2.bitwise_not(im_bw)
+    im_bw = cropToTextWithBorder(im_bw, border_size)
+    return im_bw
+
+
 def ocr_number(api, image: MatLike):
     api.SetImage(Image.fromarray(image))
     score = api.GetUTF8Text()
