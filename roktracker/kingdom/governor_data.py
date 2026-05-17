@@ -26,6 +26,7 @@ class GovernorData:
     rss_assistance: str = "Skipped"
     rss_gathered: str = "Skipped"
     helps: str = "Skipped"
+    acclaim: str = "Skipped"
 
     def t45_kills(self) -> str:
         if self.t4_kills != "Skipped" and self.t5_kills != "Skipped":
@@ -101,6 +102,9 @@ class GovernorData:
 
         if self.helps == "":
             self.helps = "Unknown"
+
+        if self.acclaim == "":
+            self.acclaim = "Unknown"
 
     @staticmethod
     def intify_value(value: str) -> int:

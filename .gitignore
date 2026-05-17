@@ -1,0 +1,20 @@
+# Environment / secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+*.egg-info/
+
+# macOS
+.DS_Store
+
+# Scanner output
+*.xlsx
+*.csv
+img/
+
+# Logs
+*.log
