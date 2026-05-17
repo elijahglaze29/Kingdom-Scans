@@ -337,19 +337,19 @@ class KingdomScanner:
             ) as api:
                 if self.scan_options["Power"]:
                     im_gov_power = cropToRegion(image, ui_positions["power"])
-                    im_gov_power_bw = preprocessImage(im_gov_power, 3, 100, 12, True)
-
-                    governor_data.power = ocr_number(api, im_gov_power_bw)
+                    for _t in [210, 180, 150]:
+                        im_gov_power_bw = preprocessImageWhiteText(im_gov_power, 3, _t, 12)
+                        governor_data.power = ocr_number(api, im_gov_power_bw)
+                        if governor_data.power:
+                            break
 
                 if self.scan_options["Killpoints"]:
-                    im_gov_killpoints = cropToRegion(
-                        image, ui_positions["killpoints"]
-                    )
-                    im_gov_killpoints_bw = preprocessImage(
-                        im_gov_killpoints, 3, 100, 12, True
-                    )
-
-                    governor_data.killpoints = ocr_number(api, im_gov_killpoints_bw)
+                    im_gov_killpoints = cropToRegion(image, ui_positions["killpoints"])
+                    for _t in [210, 180, 150]:
+                        im_gov_killpoints_bw = preprocessImageWhiteText(im_gov_killpoints, 3, _t, 12)
+                        governor_data.killpoints = ocr_number(api, im_gov_killpoints_bw)
+                        if governor_data.killpoints:
+                            break
 
                 api.SetPageSegMode(PSM.SINGLE_LINE)
                 if self.scan_options["ID"]:
@@ -364,11 +364,8 @@ class KingdomScanner:
                             break
 
                 if self.scan_options["Alliance"]:
-                    im_alliance_tag = cropToRegion(
-                        image, ui_positions["alliance_name"]
-                    )
-                    im_alliance_bw = preprocessImage(im_alliance_tag, 3, 50, 12, True)
-
+                    im_alliance_tag = cropToRegion(image, ui_positions["alliance_name"])
+                    im_alliance_bw = preprocessImageWhiteText(im_alliance_tag, 3, 180, 12)
                     governor_data.alliance = ocr_text(api, im_alliance_bw)
 
         if self.is_page_needed(2):
