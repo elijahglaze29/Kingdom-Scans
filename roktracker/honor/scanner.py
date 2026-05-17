@@ -1,4 +1,5 @@
 import math
+import platform
 import time
 
 from cv2.typing import MatLike
@@ -55,8 +56,9 @@ class HonorScanner:
         self.state_callback = default_state_callback
         self.output_handler = default_output_handler
 
+        adb_exe = "adb.exe" if platform.system() == "Windows" else "adb"
         self.adb_client = AdvancedAdbClient(
-            str(self.root_dir / "deps" / "platform-tools" / "adb.exe"),
+            str(self.root_dir / "deps" / "platform-tools" / adb_exe),
             port,
             config["general"]["emulator"],
             self.root_dir / "deps" / "inputs",
@@ -74,6 +76,8 @@ class HonorScanner:
         self.output_handler = cb
 
     def get_remaining_time(self, remaining_govs: int) -> float:
+        if not self.scan_times:
+            return 0.0
         return (sum(self.scan_times, start=0) / len(self.scan_times)) * remaining_govs
 
     def process_honor_screen(self, image: MatLike, position: int) -> GovImageGroup:

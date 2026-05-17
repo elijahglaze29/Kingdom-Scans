@@ -28,9 +28,9 @@ def get_bluestacks_port(bluestacks_device_name: str, config) -> int:
                     key_port = key.replace("display_name", "status.adb_port")
                     port = bluestacks_config.get(dummy, key_port)
                     return int(port.strip('"'))
-        except:
+        except Exception as e:
             console.print(
-                "[red]Could not parse or find bluestacks config. Defaulting to 5555.[/red]"
+                f"[red]Could not parse or find bluestacks config ({e}). Defaulting to 5555.[/red]"
             )
     return default_port
 
@@ -102,7 +102,7 @@ class AdvancedAdbClient:
         for i in range(3):
             try:
                 result = str(self.device.shell(command_to_execute))
-            except:
+            except Exception:
                 console.print("[red]ADB crashed[/red]")
                 self.kill_adb()
                 self.start_adb()
@@ -114,17 +114,16 @@ class AdvancedAdbClient:
         self.secure_adb_shell(f"input tap {position[0]} {position[1]}")
 
     def secure_adb_screencap(self) -> Image:
-        result = NewImage(mode="RGB", size=(1, 1))
         for i in range(3):
             try:
                 result = self.device.takeSnapshot(reconnect=True)
-            except:
+            except Exception:
                 console.print("[red]ADB crashed[/red]")
                 self.kill_adb()
                 self.start_adb()
             else:
                 return result
-        return result
+        raise AdbError("Failed to capture screenshot after 3 attempts")
 
     def adb_send_events(self, input_device_name: str, event_file: str | Path) -> None:
         if input_device_name == "Touch":

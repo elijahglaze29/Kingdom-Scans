@@ -77,8 +77,9 @@ class KingdomScanner:
         self.ask_continue = default_ask_continue
         self.output_handler = default_output_handler
 
+        adb_exe = "adb.exe" if platform.system() == "Windows" else "adb"
         self.adb_client = AdvancedAdbClient(
-            str(self.root_dir / "deps" / "platform-tools" / "adb.exe"),
+            str(self.root_dir / "deps" / "platform-tools" / adb_exe),
             port,
             config["general"]["emulator"],
             self.root_dir / "deps" / "inputs",
@@ -99,6 +100,8 @@ class KingdomScanner:
         self.output_handler = cb
 
     def get_remaining_time(self, remaining_govs: int) -> float:
+        if not self.scan_times:
+            return 0.0
         return (sum(self.scan_times, start=0) / len(self.scan_times)) * remaining_govs
 
     def save_failed(
@@ -326,10 +329,12 @@ class KingdomScanner:
                             governor_data.name = tk_clipboard.clipboard_get()
                             tk_clipboard.destroy()
                         break
-                    except:
-                        console.log("Name copy failed, retying")
-                        logging.log(logging.INFO, "Name copy failed, retying")
+                    except Exception as e:
+                        console.log(f"Name copy failed, retrying ({e})")
+                        logging.log(logging.INFO, f"Name copy failed, retrying ({e})")
                         copy_try = copy_try + 1
+                if not governor_data.name:
+                    governor_data.name = "Unknown"
 
             # 1st image data (ID, Power, Killpoints, Alliance)
             with PyTessBaseAPI(
