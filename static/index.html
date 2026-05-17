@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoK Kingdom Scanner</title>
+<style>
+  :root {
+    --bg: #0d0d1a;
+    --surface: #16162a;
+    --surface2: #1e1e38;
+    --border: #2a2a4a;
+    --gold: #c9a033;
+    --gold-dim: #8a6e22;
+    --text: #e0e0f0;
+    --text-dim: #7a7a9a;
+    --green: #4caf7d;
+    --red: #e05555;
+    --blue: #5599ff;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Header */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  header h1 { font-size: 18px; font-weight: 700; color: var(--gold); letter-spacing: 0.5px; flex: 1; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+  .status-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  #status-text { color: var(--text-dim); font-size: 12px; }
+  #state-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 10px; font-size: 12px; color: var(--text-dim); }
+  #state-badge.active { border-color: var(--gold); color: var(--gold); }
+
+  /* Buttons */
+  button { border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+  #btn-start { background: var(--gold); color: #0d0d1a; }
+  #btn-start:hover:not(:disabled) { opacity: 0.85; }
+  #btn-stop { background: var(--red); color: #fff; }
+  #btn-stop:hover:not(:disabled) { opacity: 0.85; }
+
+  /* Main layout */
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* Left panel — config */
+  #config-panel { width: 300px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dim); margin-bottom: 8px; }
+  label { display: block; color: var(--text-dim); font-size: 12px; margin-bottom: 4px; }
+  input[type=text], input[type=number], select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+    color: var(--text); padding: 7px 10px; font-size: 13px;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus { outline: none; border-color: var(--gold); }
+  .field { margin-bottom: 10px; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+  .toggle-row span { font-size: 13px; color: var(--text); }
+
+  /* Toggle switch */
+  .toggle { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--border); border-radius: 20px; cursor: pointer; transition: 0.2s; }
+  .slider:before { content: ''; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+  input:checked + .slider { background: var(--gold); }
+  input:checked + .slider:before { transform: translateX(16px); }
+
+  /* Radio group */
+  .radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .radio-group label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--text); margin: 0; padding: 5px 12px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface2); transition: border-color 0.15s; }
+  .radio-group input[type=radio] { display: none; }
+  .radio-group input[type=radio]:checked + span { color: var(--gold); }
+  .radio-group label:has(input:checked) { border-color: var(--gold); }
+
+  /* Checkbox group */
+  #custom-options { display: none; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  #custom-options label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text); cursor: pointer; margin: 0; }
+  #custom-options input[type=checkbox] { accent-color: var(--gold); }
+
+  /* Format row */
+  .fmt-row { display: flex; gap: 12px; }
+  .fmt-row label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text); cursor: pointer; margin: 0; }
+  .fmt-row input[type=checkbox] { accent-color: var(--gold); }
+
+  /* Advanced section */
+  details { border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
+  summary { cursor: pointer; font-size: 12px; color: var(--text-dim); font-weight: 600; letter-spacing: 0.5px; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '▶ '; font-size: 10px; }
+  details[open] summary::before { content: '▼ '; }
+  details .field:first-of-type { margin-top: 12px; }
+
+  /* Right panel */
+  #right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Progress bar */
+  #progress-bar-wrap { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px; display: none; flex-direction: column; gap: 6px; }
+  #progress-bar-wrap.visible { display: flex; }
+  .progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); }
+  .bar-bg { background: var(--border); border-radius: 4px; height: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--gold); border-radius: 4px; transition: width 0.4s; width: 0%; }
+
+  /* Tabs */
+  .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab { padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-dim); border-bottom: 2px solid transparent; transition: color 0.15s; }
+  .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  /* Log */
+  #log-panel { flex: 1; overflow-y: auto; padding: 12px 16px; font-family: 'Menlo', 'Consolas', monospace; font-size: 12px; line-height: 1.7; display: none; }
+  #log-panel.active { display: block; }
+  .log-line { color: var(--text-dim); }
+  .log-line.info { color: var(--text); }
+  .log-line.state { color: var(--blue); }
+  .log-line.error { color: var(--red); }
+  .log-line.done { color: var(--green); font-weight: 700; }
+  .log-time { color: var(--text-dim); margin-right: 8px; }
+
+  /* Results table */
+  #results-panel { flex: 1; overflow: auto; display: none; }
+  #results-panel.active { display: block; }
+  #results-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #results-table th { background: var(--surface); color: var(--gold); font-weight: 700; padding: 8px 12px; text-align: left; position: sticky; top: 0; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  #results-table td { padding: 7px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  #results-table tr:hover td { background: var(--surface2); }
+  td.unknown { color: var(--red); }
+  td.skipped { color: var(--text-dim); }
+  #empty-results { padding: 40px; text-align: center; color: var(--text-dim); }
+
+  /* Modal */
+  #modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+  #modal-backdrop.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--gold); border-radius: 10px; padding: 28px 32px; max-width: 420px; width: 90%; text-align: center; }
+  .modal h3 { color: var(--gold); margin-bottom: 12px; font-size: 16px; }
+  .modal p { color: var(--text); margin-bottom: 24px; line-height: 1.5; }
+  .modal-btns { display: flex; gap: 12px; justify-content: center; }
+  .modal-btns button { min-width: 100px; }
+  #modal-yes { background: var(--green); color: #fff; }
+  #modal-no { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚔ RoK Kingdom Scanner</h1>
+  <div class="status-dot" id="dot"></div>
+  <span id="status-text">Connecting...</span>
+  <span id="state-badge">Idle</span>
+  <button id="btn-start" disabled>▶ Start Scan</button>
+  <button id="btn-stop" disabled>■ Stop</button>
+</header>
+
+<div class="main">
+
+  <!-- Config panel -->
+  <div id="config-panel">
+    <div>
+      <div class="section-title">Scan Target</div>
+      <div class="field">
+        <label>Kingdom Name</label>
+        <input type="text" id="kingdom_name" placeholder="e.g. 1819">
+      </div>
+      <div class="field">
+        <label>Players to Scan</label>
+        <input type="number" id="people_to_scan" value="100" min="1">
+      </div>
+      <div class="field">
+        <label>ADB Port</label>
+        <input type="number" id="adb_port" value="5555">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Scan Mode</div>
+      <div class="radio-group" id="scan-mode-group">
+        <label><input type="radio" name="scan_mode" value="full" checked><span>Full</span></label>
+        <label><input type="radio" name="scan_mode" value="seed"><span>Seed</span></label>
+        <label><input type="radio" name="scan_mode" value="custom"><span>Custom</span></label>
+      </div>
+      <div id="custom-options">
+        <label><input type="checkbox" value="ID"> ID</label>
+        <label><input type="checkbox" value="Name"> Name</label>
+        <label><input type="checkbox" value="Power"> Power</label>
+        <label><input type="checkbox" value="Killpoints"> Kill Points</label>
+        <label><input type="checkbox" value="Alliance"> Alliance</label>
+        <label><input type="checkbox" value="T1 Kills"> T1 Kills</label>
+        <label><input type="checkbox" value="T2 Kills"> T2 Kills</label>
+        <label><input type="checkbox" value="T3 Kills"> T3 Kills</label>
+        <label><input type="checkbox" value="T4 Kills"> T4 Kills</label>
+        <label><input type="checkbox" value="T5 Kills"> T5 Kills</label>
+        <label><input type="checkbox" value="Ranged"> Ranged</label>
+        <label><input type="checkbox" value="Deads"> Dead Troops</label>
+        <label><input type="checkbox" value="Rss Assistance"> RSS Assisted</label>
+        <label><input type="checkbox" value="Rss Gathered"> RSS Gathered</label>
+        <label><input type="checkbox" value="Helps"> Helps</label>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Output Format</div>
+      <div class="fmt-row">
+        <label><input type="checkbox" id="fmt-xlsx" checked> Excel (.xlsx)</label>
+        <label><input type="checkbox" id="fmt-csv"> CSV</label>
+        <label><input type="checkbox" id="fmt-jsonl"> JSONL</label>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Options</div>
+      <div class="toggle-row">
+        <span>Resume scan</span>
+        <label class="toggle"><input type="checkbox" id="resume"><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Track inactives</span>
+        <label class="toggle"><input type="checkbox" id="track_inactives"><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Validate kills</span>
+        <label class="toggle"><input type="checkbox" id="validate_kills" checked><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Reconstruct kills</span>
+        <label class="toggle"><input type="checkbox" id="reconstruct_kills" checked><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Validate power</span>
+        <label class="toggle"><input type="checkbox" id="validate_power"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <details>
+      <summary>Advanced Timings</summary>
+      <div class="field">
+        <label>Governor open delay (s)</label>
+        <input type="number" id="gov_open" value="2" step="0.1" min="0">
+      </div>
+      <div class="field">
+        <label>Info close delay (s)</label>
+        <input type="number" id="info_close" value="0.5" step="0.1" min="0">
+      </div>
+      <div class="field">
+        <label>Governor close delay (s)</label>
+        <input type="number" id="gov_close" value="1" step="0.1" min="0">
+      </div>
+      <div class="toggle-row">
+        <span>Advanced scrolling</span>
+        <label class="toggle"><input type="checkbox" id="advanced_scroll" checked><span class="slider"></span></label>
+      </div>
+    </details>
+  </div>
+
+  <!-- Right panel -->
+  <div id="right-panel">
+    <div id="progress-bar-wrap">
+      <div class="progress-meta">
+        <span id="progress-label">0 / 0 governors</span>
+        <span id="progress-eta">ETA —</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" id="bar-fill"></div></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="log">Live Log</div>
+      <div class="tab" data-tab="results">Results <span id="results-count"></span></div>
+    </div>
+
+    <div id="log-panel" class="active"></div>
+
+    <div id="results-panel">
+      <div id="empty-results">Results will appear here as governors are scanned.</div>
+      <table id="results-table" style="display:none">
+        <thead><tr id="results-thead"></tr></thead>
+        <tbody id="results-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Continue modal -->
+<div id="modal-backdrop">
+  <div class="modal">
+    <h3>Scanner Prompt</h3>
+    <p id="modal-msg"></p>
+    <div class="modal-btns">
+      <button id="modal-yes">Yes</button>
+      <button id="modal-no">No</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLUMNS = [
+  { key: 'id',            label: 'ID',           option: 'ID' },
+  { key: 'name',          label: 'Name',          option: 'Name' },
+  { key: 'power',         label: 'Power',         option: 'Power' },
+  { key: 'killpoints',    label: 'Kill Points',   option: 'Killpoints' },
+  { key: 'alliance',      label: 'Alliance',      option: 'Alliance' },
+  { key: 't1_kills',      label: 'T1 Kills',      option: 'T1 Kills' },
+  { key: 't2_kills',      label: 'T2 Kills',      option: 'T2 Kills' },
+  { key: 't3_kills',      label: 'T3 Kills',      option: 'T3 Kills' },
+  { key: 't4_kills',      label: 'T4 Kills',      option: 'T4 Kills' },
+  { key: 't5_kills',      label: 'T5 Kills',      option: 'T5 Kills' },
+  { key: 'ranged_points', label: 'Ranged',        option: 'Ranged' },
+  { key: 'dead',          label: 'Dead',          option: 'Deads' },
+  { key: 'rss_assistance',label: 'RSS Assisted',  option: 'Rss Assistance' },
+  { key: 'rss_gathered',  label: 'RSS Gathered',  option: 'Rss Gathered' },
+  { key: 'helps',         label: 'Helps',         option: 'Helps' },
+];
+
+const SEED_OPTIONS = new Set(['ID','Name','Power','Killpoints','Alliance']);
+
+let ws = null;
+let scanRunning = false;
+let activeColumns = [];
+let rowCount = 0;
+
+// --- WebSocket ---
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => {
+    setStatus(true);
+    document.getElementById('btn-start').disabled = false;
+  };
+  ws.onclose = () => {
+    setStatus(false);
+    document.getElementById('btn-start').disabled = true;
+    document.getElementById('btn-stop').disabled = true;
+    setTimeout(connect, 2000);
+  };
+  ws.onmessage = e => handleMessage(JSON.parse(e.data));
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'state':
+      updateStateBadge(msg.message);
+      appendLog(msg.message, 'state');
+      break;
+    case 'log':
+      appendLog(msg.message, 'info');
+      break;
+    case 'started':
+      appendLog(msg.message, 'info');
+      showProgressBar(true);
+      break;
+    case 'governor':
+      addGovernorRow(msg.data, msg.progress);
+      updateProgress(msg.progress);
+      break;
+    case 'done':
+      appendLog(msg.message, 'done');
+      updateStateBadge('Scan finished');
+      setScanRunning(false);
+      showProgressBar(false);
+      break;
+    case 'error':
+      appendLog('ERROR: ' + msg.message, 'error');
+      updateStateBadge('Error');
+      setScanRunning(false);
+      break;
+    case 'ask_continue':
+      showModal(msg.message);
+      break;
+  }
+}
+
+// --- UI state ---
+function setStatus(connected) {
+  document.getElementById('dot').className = 'status-dot' + (connected ? ' connected' : '');
+  document.getElementById('status-text').textContent = connected ? 'Connected' : 'Disconnected';
+}
+
+function setScanRunning(running) {
+  scanRunning = running;
+  document.getElementById('btn-start').disabled = running;
+  document.getElementById('btn-stop').disabled = !running;
+  const badge = document.getElementById('state-badge');
+  if (!running) { badge.className = 'state-badge'; badge.textContent = 'Idle'; }
+}
+
+function updateStateBadge(msg) {
+  const badge = document.getElementById('state-badge');
+  badge.className = 'state-badge' + (scanRunning ? ' active' : '');
+  badge.textContent = msg;
+}
+
+function showProgressBar(show) {
+  document.getElementById('progress-bar-wrap').classList.toggle('visible', show);
+}
+
+function updateProgress(p) {
+  const pct = p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
+  document.getElementById('bar-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `${p.current} / ${p.total} governors (${p.skipped} skipped)`;
+  document.getElementById('progress-eta').textContent = `ETA ${p.eta}`;
+}
+
+// --- Log ---
+function appendLog(msg, type = 'info') {
+  const panel = document.getElementById('log-panel');
+  const now = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  line.innerHTML = `<span class="log-time">${now}</span>${escHtml(msg)}`;
+  panel.appendChild(line);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+// --- Results table ---
+function initResultsTable(cfg) {
+  rowCount = 0;
+  document.getElementById('results-count').textContent = '';
+  document.getElementById('empty-results').style.display = 'block';
+  document.getElementById('results-table').style.display = 'none';
+
+  const mode = cfg.scan_mode;
+  const customSet = new Set(cfg.custom_options || []);
+
+  activeColumns = [{ key: 'rank', label: '#' }].concat(
+    COLUMNS.filter(c => {
+      if (mode === 'full') return true;
+      if (mode === 'seed') return SEED_OPTIONS.has(c.option);
+      return customSet.has(c.option);
+    })
+  );
+
+  const thead = document.getElementById('results-thead');
+  thead.innerHTML = '';
+  activeColumns.forEach(c => {
+    const th = document.createElement('th');
+    th.textContent = c.label;
+    thead.appendChild(th);
+  });
+
+  document.getElementById('results-tbody').innerHTML = '';
+}
+
+function addGovernorRow(data, progress) {
+  rowCount++;
+  document.getElementById('results-count').textContent = `(${rowCount})`;
+  document.getElementById('empty-results').style.display = 'none';
+  document.getElementById('results-table').style.display = 'table';
+
+  const tbody = document.getElementById('results-tbody');
+  const tr = document.createElement('tr');
+  activeColumns.forEach(c => {
+    const td = document.createElement('td');
+    if (c.key === 'rank') {
+      td.textContent = progress.current;
+    } else {
+      const val = data[c.key] ?? '—';
+      td.textContent = val;
+      if (val === 'Unknown') td.className = 'unknown';
+      else if (val === 'Skipped') td.className = 'skipped';
+    }
+    tr.appendChild(td);
+  });
+  tbody.appendChild(tr);
+
+  // Auto-switch to results tab once first governor arrives
+  if (rowCount === 1) switchTab('results');
+}
+
+// --- Tabs ---
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+});
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.getElementById('log-panel').classList.toggle('active', name === 'log');
+  document.getElementById('results-panel').classList.toggle('active', name === 'results');
+}
+
+// --- Modal ---
+function showModal(msg) {
+  document.getElementById('modal-msg').textContent = msg;
+  document.getElementById('modal-backdrop').classList.add('show');
+}
+function closeModal(value) {
+  document.getElementById('modal-backdrop').classList.remove('show');
+  ws.send(JSON.stringify({ type: 'continue_response', value }));
+}
+document.getElementById('modal-yes').addEventListener('click', () => closeModal(true));
+document.getElementById('modal-no').addEventListener('click', () => closeModal(false));
+
+// --- Scan mode toggle ---
+document.querySelectorAll('input[name=scan_mode]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.getElementById('custom-options').style.display =
+      r.value === 'custom' ? 'flex' : 'none';
+  });
+});
+
+// --- Start / Stop ---
+document.getElementById('btn-start').addEventListener('click', () => {
+  const cfg = getConfig();
+  if (!cfg.kingdom_name) { alert('Please enter a kingdom name.'); return; }
+  initResultsTable(cfg);
+  setScanRunning(true);
+  switchTab('log');
+  ws.send(JSON.stringify({ type: 'start', config: cfg }));
+});
+
+document.getElementById('btn-stop').addEventListener('click', () => {
+  ws.send(JSON.stringify({ type: 'stop' }));
+});
+
+function getConfig() {
+  const mode = document.querySelector('input[name=scan_mode]:checked').value;
+  const customOptions = mode === 'custom'
+    ? [...document.querySelectorAll('#custom-options input:checked')].map(el => el.value)
+    : [];
+
+  const formats = [];
+  if (document.getElementById('fmt-xlsx').checked) formats.push('xlsx');
+  if (document.getElementById('fmt-csv').checked) formats.push('csv');
+  if (document.getElementById('fmt-jsonl').checked) formats.push('jsonl');
+
+  return {
+    kingdom_name:     document.getElementById('kingdom_name').value.trim(),
+    people_to_scan:   parseInt(document.getElementById('people_to_scan').value) || 100,
+    adb_port:         parseInt(document.getElementById('adb_port').value) || 5555,
+    scan_mode:        mode,
+    custom_options:   customOptions,
+    formats,
+    resume:           document.getElementById('resume').checked,
+    track_inactives:  document.getElementById('track_inactives').checked,
+    validate_kills:   document.getElementById('validate_kills').checked,
+    reconstruct_kills:document.getElementById('reconstruct_kills').checked,
+    validate_power:   document.getElementById('validate_power').checked,
+    info_close:       parseFloat(document.getElementById('info_close').value) || 0.5,
+    gov_close:        parseFloat(document.getElementById('gov_close').value) || 1.0,
+    advanced_scroll:  document.getElementById('advanced_scroll').checked,
+  };
+}
+
+// --- Pre-fill from server config ---
+fetch('/api/config').then(r => r.json()).then(cfg => {
+  if (cfg.scan?.kingdom_name) document.getElementById('kingdom_name').value = cfg.scan.kingdom_name;
+  if (cfg.scan?.people_to_scan) document.getElementById('people_to_scan').value = cfg.scan.people_to_scan;
+  if (cfg.general?.adb_port) document.getElementById('adb_port').value = cfg.general.adb_port;
+  if (cfg.scan?.timings?.info_close) document.getElementById('info_close').value = cfg.scan.timings.info_close;
+  if (cfg.scan?.timings?.gov_close) document.getElementById('gov_close').value = cfg.scan.timings.gov_close;
+  if (cfg.scan?.timings?.gov_open) document.getElementById('gov_open').value = cfg.scan.timings.gov_open;
+  if (cfg.scan?.formats) {
+    document.getElementById('fmt-xlsx').checked = cfg.scan.formats.xlsx ?? true;
+    document.getElementById('fmt-csv').checked = cfg.scan.formats.csv ?? false;
+    document.getElementById('fmt-jsonl').checked = cfg.scan.formats.jsonl ?? false;
+  }
+  const bools = ['resume','track_inactives','validate_kills','reconstruct_kills','validate_power','advanced_scroll'];
+  bools.forEach(k => {
+    const el = document.getElementById(k);
+    const val = cfg.scan?.[k] ?? cfg.scan?.advanced_scroll;
+    if (el && val !== undefined) el.checked = val;
+  });
+}).catch(() => {});
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+connect();
+</script>
+</body>
+</html>
