@@ -103,6 +103,9 @@ async def _handle_start(cfg: dict):
     if _scanner_thread and _scanner_thread.is_alive():
         queue_msg({"type": "error", "message": "A scan is already running."})
         return
+    # Wait for any previous thread to fully exit before starting a new one
+    if _scanner_thread:
+        await asyncio.get_event_loop().run_in_executor(None, _scanner_thread.join, 5)
     _scanner_thread = threading.Thread(target=_run_scan, args=(cfg,), daemon=True)
     _scanner_thread.start()
 
