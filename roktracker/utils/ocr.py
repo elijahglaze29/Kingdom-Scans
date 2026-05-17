@@ -13,6 +13,8 @@ def cropToRegion(image: MatLike, roi: Tuple[int, int, int, int]) -> MatLike:
 
 def cropToTextWithBorder(img: MatLike, border_size) -> MatLike:
     coords = cv2.findNonZero(cv2.bitwise_not(img))
+    if coords is None:
+        return img
     x, y, w, h = cv2.boundingRect(coords)
 
     roi = img[y : y + h, x : x + w]
