@@ -1,4 +1,5 @@
 ocr_check_profile_version = (877, 356, 85, 26)  # new profile UI has "Acclaim" text here
+profile_image_region = (65, 50, 250, 320)  # governor avatar (top-left of profile popup)
 
 # format: (x, y, width, height)
 ocr_regions_old = {
@@ -35,6 +36,7 @@ ocr_regions = {
     "power": (1142, 306, 218, 38),
     "killpoints": (876, 306, 216, 38),
     "alliance_name": (586, 306, 279, 38),
+    "acclaim": (877, 378, 216, 38),  # new UI only; Highest Acclaim not tracked
     # second screen
     "t1_kills": (607, 397, 200, 38),
     "t2_kills": (607, 441, 200, 38),

@@ -185,6 +185,7 @@
         <label><input type="checkbox" value="Power"> Power</label>
         <label><input type="checkbox" value="Killpoints"> Kill Points</label>
         <label><input type="checkbox" value="Alliance"> Alliance</label>
+        <label><input type="checkbox" value="Acclaim"> Acclaim</label>
         <label><input type="checkbox" value="T1 Kills"> T1 Kills</label>
         <label><input type="checkbox" value="T2 Kills"> T2 Kills</label>
         <label><input type="checkbox" value="T3 Kills"> T3 Kills</label>
@@ -298,6 +299,7 @@ const COLUMNS = [
   { key: 'power',         label: 'Power',         option: 'Power' },
   { key: 'killpoints',    label: 'Kill Points',   option: 'Killpoints' },
   { key: 'alliance',      label: 'Alliance',      option: 'Alliance' },
+  { key: 'acclaim',       label: 'Acclaim',       option: 'Acclaim' },
   { key: 't1_kills',      label: 'T1 Kills',      option: 'T1 Kills' },
   { key: 't2_kills',      label: 'T2 Kills',      option: 'T2 Kills' },
   { key: 't3_kills',      label: 'T3 Kills',      option: 'T3 Kills' },
@@ -310,7 +312,7 @@ const COLUMNS = [
   { key: 'helps',         label: 'Helps',         option: 'Helps' },
 ];
 
-const SEED_OPTIONS = new Set(['ID','Name','Power','Killpoints','Alliance']);
+const SEED_OPTIONS = new Set(['ID','Name','Power','Killpoints','Alliance','Acclaim']);
 
 let ws = null;
 let scanRunning = false;

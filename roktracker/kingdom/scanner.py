@@ -172,6 +172,7 @@ class KingdomScanner:
                     or self.scan_options["Power"]
                     or self.scan_options["Killpoints"]
                     or self.scan_options["Alliance"]
+                    or self.scan_options["Acclaim"]
                 )
             case 2:
                 return (
@@ -220,18 +221,19 @@ class KingdomScanner:
             )
 
             image_check = load_cv2_img(
-                self.img_path / "check_more_info.png", cv2.IMREAD_GRAYSCALE
+                self.img_path / "check_more_info.png", cv2.IMREAD_COLOR
             )
 
             # Checking for more info
             im_check_more_info = cropToRegion(
                 image_check, rok_ui.ocr_regions["more_info"]
             )
+            im_check_more_info_bw = preprocessImageWhiteText(im_check_more_info, 2, 180, 4)
             check_more_info = ""
 
             with PyTessBaseAPI(path=str(self.tesseract_path)) as api:
                 api.SetVariable("tessedit_char_whitelist", "MoreInfo")
-                api.SetImage(Image.fromarray(im_check_more_info))  # type: ignore (pylance is messed up)
+                api.SetImage(Image.fromarray(im_check_more_info_bw))  # type: ignore (pylance is messed up)
                 check_more_info = api.GetUTF8Text()
 
             # Probably tapped governor is inactive and needs to be skipped
@@ -279,19 +281,23 @@ class KingdomScanner:
             else:
                 gov_info = True
                 image_check = load_cv2_img(
-                    self.img_path / "check_more_info.png", cv2.IMREAD_GRAYSCALE
+                    self.img_path / "check_more_info.png", cv2.IMREAD_COLOR
                 )
 
                 # Checking for more info
-                im_check_more_info = cropToRegion(
+                im_check_acclaim = cropToRegion(
                     image_check, rok_ui.ocr_check_profile_version
                 )
                 check_profile_version = ""
 
-                with PyTessBaseAPI(path=str(self.tesseract_path)) as api:
-                    api.SetVariable("tessedit_char_whitelist", "Aclaim")
-                    api.SetImage(Image.fromarray(im_check_more_info))  # type: ignore (pylance is messed up)
-                    check_profile_version = api.GetUTF8Text()
+                for _t in [200, 160]:
+                    im_check_acclaim_bw = preprocessImageWhiteText(im_check_acclaim, 2, _t, 4)
+                    with PyTessBaseAPI(path=str(self.tesseract_path)) as api:
+                        api.SetVariable("tessedit_char_whitelist", "Aclaim")
+                        api.SetImage(Image.fromarray(im_check_acclaim_bw))  # type: ignore (pylance is messed up)
+                        check_profile_version = api.GetUTF8Text()
+                    if check_profile_version.strip():
+                        break
 
                 if "Acclaim" in check_profile_version:
                     ui_positions = rok_ui.ocr_regions
@@ -372,6 +378,25 @@ class KingdomScanner:
                     im_alliance_tag = cropToRegion(image, ui_positions["alliance_name"])
                     im_alliance_bw = preprocessImageWhiteText(im_alliance_tag, 3, 180, 12)
                     governor_data.alliance = ocr_text(api, im_alliance_bw)
+
+                if self.scan_options["Acclaim"] and "acclaim" in ui_positions:
+                    im_acclaim = cropToRegion(image, ui_positions["acclaim"])
+                    for _t in [210, 180, 150]:
+                        im_acclaim_bw = preprocessImageWhiteText(im_acclaim, 3, _t, 12)
+                        governor_data.acclaim = ocr_number(api, im_acclaim_bw)
+                        if governor_data.acclaim:
+                            break
+
+            # Save avatar crop for Supabase upload (after ID is known)
+            if governor_data.id and governor_data.id.isdigit():
+                im_avatar = cropToRegion(image, rok_ui.profile_image_region)
+                if len(im_avatar.shape) == 3 and im_avatar.shape[2] == 4:
+                    im_avatar = cv2.cvtColor(im_avatar, cv2.COLOR_BGRA2BGR)
+                cv2.imwrite(
+                    str(self.img_path / f"avatar_{governor_data.id}.jpg"),
+                    im_avatar,
+                    [cv2.IMWRITE_JPEG_QUALITY, 85],
+                )
 
         if self.is_page_needed(2):
             # kills tier

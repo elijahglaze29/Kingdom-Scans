@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import json
 import logging
+import os
 import sys
 import threading
 from pathlib import Path
@@ -14,12 +15,19 @@ from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from dummy_root import get_app_root
 from roktracker.kingdom.additional_data import AdditionalData
 from roktracker.kingdom.governor_data import GovernorData
 from roktracker.kingdom.scanner import KingdomScanner
 from roktracker.utils.general import load_config, ConfigError
 from roktracker.utils.output_formats import OutputFormats
+from roktracker.utils import supabase_uploader
 
 logging.basicConfig(
     filename=str(get_app_root() / "kingdom-scanner.log"),
@@ -153,6 +161,18 @@ def _run_scan(cfg: dict):
         formats = OutputFormats()
         formats.from_list(cfg.get("formats", ["xlsx"]))
 
+        # Initialize Supabase if a service role key is available
+        service_role_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        supabase_enabled = False
+        if service_role_key:
+            supabase_enabled = supabase_uploader.init(service_role_key)
+            if supabase_enabled:
+                queue_msg({"type": "log", "message": "Supabase connected — live upload enabled."})
+            else:
+                queue_msg({"type": "log", "message": "Warning: Supabase init failed — scans will not upload to kd1819.com."})
+        else:
+            queue_msg({"type": "log", "message": "No SUPABASE_SERVICE_ROLE_KEY set — skipping live upload."})
+
         def ask_continue(msg: str) -> bool:
             global _continue_event, _continue_result
             _continue_event = threading.Event()
@@ -178,6 +198,23 @@ def _run_scan(cfg: dict):
                     "skipped": extra.skipped_governors,
                 },
             })
+            if supabase_enabled:
+                avatar_path = _scanner.img_path / f"avatar_{gov.id}.jpg" if _scanner else None
+                threading.Thread(
+                    target=supabase_uploader.upload_governor,
+                    args=(
+                        gov.id,
+                        gov.name,
+                        gov.power,
+                        gov.killpoints,
+                        gov.deads,
+                        gov.acclaim,
+                        gov.alliance,
+                        extra.current_governor,
+                    ),
+                    kwargs={"profile_image_path": avatar_path},
+                    daemon=True,
+                ).start()
 
         _scanner = KingdomScanner(app_cfg, scan_options, adb_port)
         _scanner.set_continue_handler(ask_continue)
@@ -202,14 +239,14 @@ def _run_scan(cfg: dict):
 
 def _build_scan_options(mode: str, custom: list) -> dict:
     all_keys = [
-        "ID", "Name", "Power", "Killpoints", "Alliance",
+        "ID", "Name", "Power", "Killpoints", "Alliance", "Acclaim",
         "T1 Kills", "T2 Kills", "T3 Kills", "T4 Kills", "T5 Kills",
         "Ranged", "Deads", "Rss Assistance", "Rss Gathered", "Helps",
     ]
     if mode == "full":
         return {k: True for k in all_keys}
     elif mode == "seed":
-        seed = {"ID", "Name", "Power", "Killpoints", "Alliance"}
+        seed = {"ID", "Name", "Power", "Killpoints", "Alliance", "Acclaim"}
         return {k: k in seed for k in all_keys}
     else:
         return {k: k in custom for k in all_keys}

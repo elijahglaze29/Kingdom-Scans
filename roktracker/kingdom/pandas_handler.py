@@ -42,6 +42,7 @@ class PandasHandler:
                 "Rss Assistance": GovernorData.intify_value(gov_data.rss_assistance),
                 "Helps": GovernorData.intify_value(gov_data.helps),
                 "Alliance": gov_data.alliance.rstrip(),
+                "Acclaim": GovernorData.intify_value(gov_data.acclaim),
             }
         )
 
